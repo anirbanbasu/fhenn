@@ -1,2 +1,3 @@
-# fastapi-playground
-Playground with Fast API
+# FastAPI Playground
+
+Various tests with Fast API.
