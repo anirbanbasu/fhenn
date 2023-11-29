@@ -1,4 +1,5 @@
 from typing import Annotated
+from fastapi.responses import RedirectResponse
 import tenseal as ts
 import numpy as np
 from fastapi import FastAPI
@@ -47,8 +48,13 @@ class TryCKKSResult(BaseModel):
         description="Product of v1 and the matrix, computed over the CKKS encrypted domain.")] = None
 
 
-@app.get("/", summary="Get a hello world message!")
+@app.get("/", summary="Redirects to the docs.")
 async def root():
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/hello", summary="Get a hello world message!")
+async def hello():
     return {"message": "There is no rain that won't stop!"}
 
 
