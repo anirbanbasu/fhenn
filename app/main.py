@@ -70,8 +70,8 @@ async def try_ckks() -> TryCKKSResult:
 
     v1 = np.random.randint(0, 10, 5)
     v2 = np.random.randint(0, 10, 5)
-    retval.v1 = np.array2string(v1)
-    retval.v2 = np.array2string(v2)
+    retval.v1 = map(str, v1)  # np.array2string(v1)
+    retval.v2 = map(str, v1)  # np.array2string(v2)
 
     # encrypted vectors
     enc_v1 = ts.ckks_vector(context, v1)
@@ -84,7 +84,7 @@ async def try_ckks() -> TryCKKSResult:
     retval.v1_dot_v2 = map(str, result.decrypt())
 
     matrix = np.random.randint(0, 10, (5, 3))
-    retval.matrix = np.array2string(matrix)
+    retval.matrix = map(str, matrix)  # np.array2string(matrix)
     result = enc_v1.matmul(matrix)
     retval.v1_mult_matrix = map(str, result.decrypt())
 
