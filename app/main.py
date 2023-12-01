@@ -77,7 +77,7 @@ async def try_ckks() -> TryCKKSResult:
     v1 = np.random.randint(0, 10, 5)
     v2 = np.random.randint(0, 10, 5)
     retval.v1 = map(str, v1)  # np.array2string(v1)
-    retval.v2 = map(str, v1)  # np.array2string(v2)
+    retval.v2 = map(str, v2)  # np.array2string(v2)
 
     # encrypted vectors
     enc_v1 = ts.ckks_vector(context, v1)
