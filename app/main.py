@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
 description = """
-Exciting stuff. 🚀
+Exciting stuff.
 
 ## Operations
 
@@ -26,9 +26,9 @@ You will be able to:
 """
 
 app = FastAPI(
-    title="FastAPI Playground",
+    title="CKKS vector and matrix operations",
     description=description,
-    summary="Test FastAPI stuff.",
+    summary="Test stuff with CKKS vectors and matrices.",
     version="0.0.1",
     contact={
         "name": "Anirban Basu",
@@ -41,11 +41,11 @@ class TryCKKSResult(BaseModel):
     v2: Annotated[str, Field(description="Second random Numpy vector.")] = None
     matrix: Annotated[str, Field(description="Random Numpy matrix.")] = None
     v1_sum_v2: Annotated[str, Field(
-        description="Sum of v1 and v2, computed over the CKKS encrypted domain.")] = None
+        description="Sum of v1 and v2, computed over the CKKS encrypted domain and then decrypted.")] = None
     v1_dot_v2: Annotated[str, Field(
-        description="Dot product of v1 and v2, computed over the CKKS encrypted domain.")] = None
+        description="Dot product of v1 and v2, computed over the CKKS encrypted domain and then decrypted.")] = None
     v1_mult_matrix: Annotated[str, Field(
-        description="Product of v1 and the matrix, computed over the CKKS encrypted domain.")] = None
+        description="Product of v1 and the matrix, computed over the CKKS encrypted domain and then decrypted.")] = None
 
 
 @app.get("/", summary="Redirects to the docs.")
@@ -74,8 +74,8 @@ async def try_ckks() -> TryCKKSResult:
 
     retval = TryCKKSResult()
 
-    v1 = np.random.randint(0, 10, 5)
-    v2 = np.random.randint(0, 10, 5)
+    v1 = np.random.random(5)
+    v2 = np.random.random(5)
     retval.v1 = map(str, v1)  # np.array2string(v1)
     retval.v2 = map(str, v2)  # np.array2string(v2)
 
@@ -89,7 +89,7 @@ async def try_ckks() -> TryCKKSResult:
     result = enc_v1.dot(enc_v2)
     retval.v1_dot_v2 = map(str, result.decrypt())
 
-    matrix = np.random.randint(0, 10, (5, 3))
+    matrix = np.random.random((5, 3))
     retval.matrix = map(str, matrix)  # np.array2string(matrix)
     result = enc_v1.matmul(matrix)
     retval.v1_mult_matrix = map(str, result.decrypt())
