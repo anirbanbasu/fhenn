@@ -1,21 +1,9 @@
-# Vectors and matrices in CKKS
+# Fully Homomorphic Encryption (FHE) and neural networks
 
-Various tests on vectors and matrices with CKKS using Fast API.
+This repository contains haphazard experiments with applying fully homomorphic encryption (FHE) on neural networks.
 
-To deploy `main:app` in the `app` route using `uvicorn` on port 8192 (as an example), run the following.
+To begin, you must have `poetry` installed. See [installation instructions](https://python-poetry.org/docs/#installation).
 
-```
-uvicorn --host 0.0.0.0 --port 8192 app.main:app --reload
-```
+Once you have `poetry`, run `poetry install` in the directory where you cloned this repository. This will automatically create a virtual environment. Switch to it by invoking `poetry shell`. Then, run `fhenn --help` to see the rather self-explanatory commands available.
 
-The Python package `TenSEAL` may need to be compiled from source if the correct package for the target processor architecture (e.g., arm64) is not available by running the following. See: https://github.com/OpenMined/TenSEAL/issues/234#issuecomment-1761707506.
-
-```
-git clone --recursive https://github.com/OpenMined/TenSEAL.git
-cd TenSEAL/
-git submodule init
-git submodule update
-pip install .
-```
-
-Alternatively, executing `pip install git+https://github.com/OpenMined/TenSEAL.git#egg=tenseal` may also work.
+Note that during the course of running the commands, e.g., training, datasets will be downloaded in the `data` directory relative to the repository root.
