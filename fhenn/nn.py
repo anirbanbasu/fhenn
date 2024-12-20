@@ -8,36 +8,25 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
 
 
 class ConvNet(torch.nn.Module):
-    def __init__(self, hidden=64, output=10):
-        # if torch.backends.mps.is_available():
-        #     if torch.backends.mps.is_built():
-        #         self.device = torch.device("mps")
-        # elif torch.cuda.is_available():
-        #     self.device = torch.device("cuda")
-        # else:
-        #     self.device = torch.device("cpu")
+    def __init__(self, hidden=64, output=10, device=None):
+        if device is None:
+            if torch.backends.mps.is_available():
+                if torch.backends.mps.is_built():
+                    self.device = torch.device("mps")
+            elif torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            else:
+                self.device = torch.device("cpu")
+        else:
+            self.device = device
 
-        # print(f"Using device: {self.device}")
-        self.device = None
+        print(f"Using device: {self.device}")
         super(ConvNet, self).__init__()
         self.conv1 = torch.nn.Conv2d(
-            1,
-            4,
-            kernel_size=7,
-            padding=0,
-            stride=3,
-            # device=self.device
+            1, 4, kernel_size=7, padding=0, stride=3, device=self.device
         )
-        self.fc1 = torch.nn.Linear(
-            256,
-            hidden,
-            #    device=self.device
-        )
-        self.fc2 = torch.nn.Linear(
-            hidden,
-            output,
-            #    device=self.device
-        )
+        self.fc1 = torch.nn.Linear(256, hidden, device=self.device)
+        self.fc2 = torch.nn.Linear(hidden, output, device=self.device)
 
     def forward(self, x):
         x = self.conv1(x)

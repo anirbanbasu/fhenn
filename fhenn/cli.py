@@ -121,10 +121,9 @@ def _test(model, test_loader, criterion, device):
 
     # model in evaluation mode
     model.eval()
-
     for data, target in test_loader:
-        # data = data.to(device)
-        # target = target.to(device)
+        data = data.to(device)
+        target = target.to(device)
         output = model(data)
         loss = criterion(output, target)
         test_loss += loss.item()
@@ -247,11 +246,11 @@ def encrypted_test_model(
         download=True,
         transform=transforms.ToTensor(),
     )
-    batch_size = 64
+    batch_size = 1
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
     )
-    model = ConvNet()
+    model = ConvNet(device="cpu")
     model.load_state_dict(torch.load(model_path))
     criterion = torch.nn.CrossEntropyLoss()
     kernel_shape = model.conv1.kernel_size
