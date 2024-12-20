@@ -1,13 +1,17 @@
+from enum import Enum
+from typing import Optional
 import numpy as np
 import torch
 from torchvision import datasets, transforms
 import typer
 import tenseal as ts
 from rich.console import Console
+from rich.table import Table
 from rich.markdown import Markdown
 from rich.panel import Panel
 from datetime import datetime
 import warnings
+from tqdm import tqdm
 
 from fhenn.constants import Constants
 from fhenn.nn import ConvNet, EncConvNet
@@ -24,8 +28,16 @@ app = typer.Typer(
     no_args_is_help=True,
     chain=True,
     add_completion=False,
-    pretty_exceptions_enable=False,
+    pretty_exceptions_enable=True,
+    # The following is for security reasons.
+    pretty_exceptions_show_locals=False,
 )
+
+
+class SupportedDataset(str, Enum):
+    mnist = "mnist"
+    fashion_mnist = "fashion_mnist"
+
 
 # torch.manual_seed(73)
 
@@ -55,10 +67,16 @@ def hello(name: str):
 
 
 def _train(
-    model: torch.nn.Module, train_loader, criterion, optimizer, device, n_epochs=10
+    model: torch.nn.Module,
+    train_loader: torch.utils.data.DataLoader,
+    criterion,
+    optimizer,
+    device,
+    n_epochs: int,
 ):
     model.train()
-    for epoch in range(1, n_epochs + 1):
+    p_bar = tqdm(total=n_epochs, desc="Training", leave=True, colour="blue")
+    for epoch in range(n_epochs):
         train_loss = 0.0
         for data, target in train_loader:
             data = data.to(device)
@@ -73,8 +91,12 @@ def _train(
         # calculate average losses
         train_loss = train_loss / len(train_loader)
 
-        print("Epoch: {} \tTraining Loss: {:.6f}".format(epoch, train_loss))
+        p_bar.set_description(f"Training with loss {train_loss:.6f}")
+        p_bar.reset(total=n_epochs)
+        p_bar.update(epoch + 1)
+        p_bar.refresh()
 
+    p_bar.close()
     # model in evaluation mode
     model.eval()
     return model
@@ -85,40 +107,81 @@ def _train(
     help="This command trains a simple convolutional neural network on the MNIST dataset.",
 )
 def train_model(
-    model_path: str = typer.Option(
-        help="The path to save the trained model.", writable=True
+    model_output_path: str = typer.Argument(
+        help="The path to save the trained model.",
+        writable=True,
+        exists=False,
+        resolve_path=True,
+    ),
+    batch_size: Optional[int] = typer.Option(
+        help="The batch size to use for training.", default=64
+    ),
+    dataset: Optional[SupportedDataset] = typer.Option(
+        help="The dataset to use for training.", default=SupportedDataset.mnist
+    ),
+    epochs: Optional[int] = typer.Option(
+        help="The number of epochs to train the model.", default=10
     ),
 ):
-    train_data = datasets.MNIST(
+    console = Console()
+    if dataset == SupportedDataset.mnist:
+        chosen_dataset = datasets.MNIST
+    elif dataset == SupportedDataset.fashion_mnist:
+        chosen_dataset = datasets.FashionMNIST
+    else:
+        typer.echo("Invalid dataset specified.", color="red")
+        raise typer.Exit(code=1)
+
+    train_data = chosen_dataset(
         Constants.DATA_DIRECTORY,
         train=True,
         download=True,
         transform=transforms.ToTensor(),
     )
-    batch_size = 64
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True
     )
     model = ConvNet()
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+
+    table = Table()
+    table.add_column("Parameter", style="cyan", no_wrap=True)
+    table.add_column("Value", style="magenta")
+    table.add_row("Batch size", str(batch_size))
+    table.add_row("Dataset", str(dataset.value))
+    table.add_row("Epochs", str(epochs))
+    table.add_row("Device", str(model.device))
+    table.add_section()
+    table.add_row("Criterion", str(criterion))
+    table.add_row("Optimizer", str(optimizer))
+    console.print(table)
+
     model = _train(
         model=model,
         train_loader=train_loader,
         criterion=criterion,
         device=model.device,
         optimizer=optimizer,
-        n_epochs=25,
+        n_epochs=epochs,
     )
-    torch.save(model.state_dict(), model_path)
+    torch.save(model.state_dict(), model_output_path)
+    typer.echo(f"Model saved to {model_output_path}")
 
 
-def _test(model, test_loader, criterion, device):
+def _test(
+    model: torch.nn.Module, test_loader: torch.utils.data.DataLoader, criterion, device
+):
+    console = Console()
     # initialize lists to monitor test loss and accuracy
     test_loss = 0.0
     class_correct = list(0.0 for i in range(10))
     class_total = list(0.0 for i in range(10))
 
+    p_bar = tqdm(
+        total=len(test_loader), desc="Testing in batches", leave=True, colour="yellow"
+    )
+    test_counter = 0
     # model in evaluation mode
     model.eval()
     for data, target in test_loader:
@@ -137,20 +200,44 @@ def _test(model, test_loader, criterion, device):
             class_correct[label] += correct[i].item()
             class_total[label] += 1
 
+        test_counter += 1
+        p_bar.reset(total=len(test_loader))
+        p_bar.update(test_counter + 1)
+        p_bar.refresh()
+
+    p_bar.close()
+
     # calculate and print avg test loss
     test_loss = test_loss / len(test_loader)
-    print(f"Test Loss: {test_loss:.6f}\n")
+    typer.echo(f"Test loss: {test_loss:.6f}\n")
+
+    table = Table()
+    table.add_column("Label", justify="center", no_wrap=True)
+    table.add_column("Accuracy", justify="center")
+    table.add_column("Observations (correct/total)", justify="center", no_wrap=True)
 
     for label in range(10):
-        print(
-            f"Test Accuracy of {label}: {int(100 * class_correct[label] / class_total[label])}% "
-            f"({int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))})"
+        # typer.echo(
+        #     f"Test accuracy of {label}: {int(100 * class_correct[label] / class_total[label])}% "
+        #     f"({int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))})"
+        # )
+        table.add_row(
+            str(label),
+            f"{int(100 * class_correct[label] / class_total[label])}%",
+            f"{int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))}",
         )
 
-    print(
-        f"\nTest Accuracy (Overall): {int(100 * np.sum(class_correct) / np.sum(class_total))}% "
-        f"({int(np.sum(class_correct))}/{int(np.sum(class_total))})"
+    table.add_section()
+
+    table.add_row(
+        "Overall",
+        f"{int(100 * np.sum(class_correct) / np.sum(class_total))}%",
+        f"{int(np.sum(class_correct))}/{int(np.sum(class_total))}",
+        style="bold",
+        end_section=True,
     )
+
+    console.print(table)
 
 
 @app.command(
@@ -158,23 +245,51 @@ def _test(model, test_loader, criterion, device):
     help="This command performs test on a previously trained model.",
 )
 def plaintext_test_model(
-    model_path: str = typer.Option(
-        help="The path to the trained model.", readable=True, exists=True
+    model_input_path: str = typer.Argument(
+        help="The path to the trained model.",
+        readable=True,
+        exists=True,
+        resolve_path=True,
+    ),
+    batch_size: Optional[int] = typer.Option(
+        help="The batch size to use for training.", default=64
+    ),
+    dataset: Optional[SupportedDataset] = typer.Option(
+        help="The dataset to use for training.", default=SupportedDataset.mnist
     ),
 ):
-    test_data = datasets.MNIST(
+    console = Console()
+    if dataset == SupportedDataset.mnist:
+        chosen_dataset = datasets.MNIST
+    elif dataset == SupportedDataset.fashion_mnist:
+        chosen_dataset = datasets.FashionMNIST
+    else:
+        typer.echo("Invalid dataset specified.", color="red")
+        raise typer.Exit(code=1)
+
+    test_data = chosen_dataset(
         Constants.DATA_DIRECTORY,
         train=False,
         download=True,
         transform=transforms.ToTensor(),
     )
-    batch_size = 64
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
     )
     model = ConvNet()
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_input_path))
+    typer.echo(f"Loaded model from {model_input_path}")
     criterion = torch.nn.CrossEntropyLoss()
+
+    table = Table()
+    table.add_column("Parameter", no_wrap=True)
+    table.add_column("Value")
+    table.add_row("Batch size", str(batch_size))
+    table.add_row("Dataset", str(dataset.value))
+    table.add_row("Device", str(model.device))
+    table.add_row("Criterion", str(criterion))
+    console.print(table)
+
     _test(
         model=model, test_loader=test_loader, criterion=criterion, device=model.device
     )
@@ -250,7 +365,7 @@ def encrypted_test_model(
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
     )
-    model = ConvNet(device="cpu")
+    model = ConvNet()
     model.load_state_dict(torch.load(model_path))
     criterion = torch.nn.CrossEntropyLoss()
     kernel_shape = model.conv1.kernel_size

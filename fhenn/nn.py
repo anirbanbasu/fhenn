@@ -18,9 +18,8 @@ class ConvNet(torch.nn.Module):
             else:
                 self.device = torch.device("cpu")
         else:
-            self.device = device
+            self.device = torch.device(device)
 
-        print(f"Using device: {self.device}")
         super(ConvNet, self).__init__()
         self.conv1 = torch.nn.Conv2d(
             1, 4, kernel_size=7, padding=0, stride=3, device=self.device
@@ -30,7 +29,7 @@ class ConvNet(torch.nn.Module):
 
     def forward(self, x):
         x = self.conv1(x)
-        # the model uses the square activation function
+        # square activation function
         x = x * x
         # flattening while keeping the batch axis
         x = x.view(-1, 256)
