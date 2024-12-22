@@ -27,9 +27,12 @@ app = typer.Typer(name="cnn")
 class SupportedDataset(str, Enum):
     mnist = "mnist"
     fashion_mnist = "fashion_mnist"
+    emnist = "emnist"
+    kmnist = "kmnist"
+    qmnist = "qmnist"
 
 
-# torch.manual_seed(73)
+torch.manual_seed(21)
 
 
 @app.callback()
@@ -109,24 +112,41 @@ def train(
         chosen_dataset = datasets.MNIST
     elif dataset == SupportedDataset.fashion_mnist:
         chosen_dataset = datasets.FashionMNIST
+    elif dataset == SupportedDataset.emnist:
+        chosen_dataset = datasets.EMNIST
+    elif dataset == SupportedDataset.kmnist:
+        chosen_dataset = datasets.KMNIST
+    elif dataset == SupportedDataset.qmnist:
+        chosen_dataset = datasets.QMNIST
     else:
-        typer.echo("Invalid dataset specified.", color="red")
+        typer.secho("Invalid dataset specified.", bg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    train_data = chosen_dataset(
-        Constants.DATA_DIRECTORY,
-        train=True,
-        download=True,
-        transform=transforms.ToTensor(),
+    train_data = (
+        chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            train=True,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
+        if dataset != SupportedDataset.emnist
+        else chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            split="mnist",
+            train=True,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
     )
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True
     )
     model = CNN2D()
     criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
     config_tree = Tree("Configuration")
+    config_tree.add(f"Model: {model}")
     config_tree.add(f"Batch size: {batch_size}")
     config_tree.add(f"Dataset: {dataset.value}")
     config_tree.add(f"Epochs: {epochs}")
@@ -232,7 +252,8 @@ def test(
         help="The batch size to use for training.", default=64
     ),
     dataset: Optional[SupportedDataset] = typer.Option(
-        help="The dataset to use for training.", default=SupportedDataset.mnist
+        help="The dataset to use for training.",
+        default=SupportedDataset.mnist,
     ),
 ):
     console = Console()
@@ -240,15 +261,31 @@ def test(
         chosen_dataset = datasets.MNIST
     elif dataset == SupportedDataset.fashion_mnist:
         chosen_dataset = datasets.FashionMNIST
+    elif dataset == SupportedDataset.emnist:
+        chosen_dataset = datasets.EMNIST
+    elif dataset == SupportedDataset.kmnist:
+        chosen_dataset = datasets.KMNIST
+    elif dataset == SupportedDataset.qmnist:
+        chosen_dataset = datasets.QMNIST
     else:
-        typer.echo("Invalid dataset specified.", color="red")
+        typer.secho("Invalid dataset specified.", bg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    test_data = chosen_dataset(
-        Constants.DATA_DIRECTORY,
-        train=False,
-        download=True,
-        transform=transforms.ToTensor(),
+    test_data = (
+        chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            train=False,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
+        if dataset != SupportedDataset.emnist
+        else chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            split="mnist",
+            train=False,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
     )
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
@@ -259,6 +296,7 @@ def test(
     criterion = torch.nn.CrossEntropyLoss()
 
     config_tree = Tree("Configuration")
+    config_tree.add(f"Model: {model}")
     config_tree.add(f"Batch size: {batch_size}")
     config_tree.add(f"Dataset: {dataset.value}")
     config_tree.add(f"Device: {model.device}")
@@ -366,7 +404,8 @@ def encrypted_test(
         help="The path to the trained model.", readable=True, exists=True
     ),
     dataset: Optional[SupportedDataset] = typer.Option(
-        help="The dataset to use for training.", default=SupportedDataset.mnist
+        help="The dataset to use for training.",
+        default=SupportedDataset.mnist,
     ),
 ):
     console = Console()
@@ -375,15 +414,31 @@ def encrypted_test(
         chosen_dataset = datasets.MNIST
     elif dataset == SupportedDataset.fashion_mnist:
         chosen_dataset = datasets.FashionMNIST
+    elif dataset == SupportedDataset.emnist:
+        chosen_dataset = datasets.EMNIST
+    elif dataset == SupportedDataset.kmnist:
+        chosen_dataset = datasets.KMNIST
+    elif dataset == SupportedDataset.qmnist:
+        chosen_dataset = datasets.QMNIST
     else:
-        typer.echo("Invalid dataset specified.", color="red")
+        typer.secho("Invalid dataset specified.", bg=typer.colors.RED)
         raise typer.Exit(code=1)
 
-    test_data = chosen_dataset(
-        Constants.DATA_DIRECTORY,
-        train=False,
-        download=True,
-        transform=transforms.ToTensor(),
+    test_data = (
+        chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            train=False,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
+        if dataset != SupportedDataset.emnist
+        else chosen_dataset(
+            Constants.DATA_DIRECTORY,
+            split="mnist",
+            train=False,
+            download=True,
+            transform=transforms.ToTensor(),
+        )
     )
     batch_size = 1
     test_loader = torch.utils.data.DataLoader(
@@ -395,7 +450,8 @@ def encrypted_test(
             f"Even if the model is on a {model.device} device, "
             "the encrypted test is done on CPU because encrypted "
             "queries are not supported on GPU-like devices.",
-            bg=typer.colors.RED,
+            fg=typer.colors.BRIGHT_RED,
+            bg=typer.colors.BRIGHT_YELLOW,
         )
     model.load_state_dict(torch.load(model_path))
     criterion = torch.nn.CrossEntropyLoss()
@@ -428,6 +484,7 @@ def encrypted_test(
     context.generate_galois_keys()
 
     config_tree = Tree("Configuration")
+    config_tree.add(f"Model: {model}")
     config_tree.add(f"Batch size: {batch_size}")
     config_tree.add(f"Dataset: {dataset.value}")
     config_tree.add(f"Criterion: {criterion}")
