@@ -6,15 +6,13 @@ from torchvision import datasets, transforms
 import typer
 import tenseal as ts
 from rich.console import Console
+from rich.tree import Tree
 from rich.table import Table
-from rich.markdown import Markdown
-from rich.panel import Panel
-from datetime import datetime
 import warnings
 from tqdm import tqdm
 
 from fhenn.constants import Constants
-from fhenn.nn import ConvNet, EncConvNet
+from fhenn.nn.cnn2d import CNN2D, EncryptedCNN2D
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -23,15 +21,7 @@ try:
 except ImportError:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
-app = typer.Typer(
-    name="FHENN",
-    no_args_is_help=True,
-    chain=True,
-    add_completion=False,
-    pretty_exceptions_enable=True,
-    # The following is for security reasons.
-    pretty_exceptions_show_locals=False,
-)
+app = typer.Typer(name="cnn")
 
 
 class SupportedDataset(str, Enum):
@@ -41,29 +31,13 @@ class SupportedDataset(str, Enum):
 
 # torch.manual_seed(73)
 
-# print([dataset.id for dataset in list_datasets()])
 
-
-@app.command(
-    short_help="The de-facto Hello World command.",
-    help="This command prints a slightly unusual Hello World message.",
-    no_args_is_help=True,
-)
-def hello(name: str):
-    console = Console()
-    msg = Markdown(
-        f"Hello _{name}_! This is a **slightly unusual** `Hello World` message.",
-        justify="center",
-    )
-    console.print(
-        Panel(
-            msg,
-            title=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            title_align="right",
-            expand=False,
-            padding=(1, 2),
-        )
-    )
+@app.callback()
+def callback():
+    """
+    Convolutional Neural Network (CNN) training and testing.
+    """
+    typer.echo("Convolutional Neural Network (CNN) training and testing.")
 
 
 def _train(
@@ -75,8 +49,15 @@ def _train(
     n_epochs: int,
 ):
     model.train()
-    p_bar = tqdm(total=n_epochs, desc="Training", leave=True, colour="blue")
-    for epoch in range(n_epochs):
+    p_bar = tqdm(
+        total=n_epochs,
+        desc="Training",
+        leave=True,
+        colour="blue",
+        unit="epoch",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
+    )
+    for _ in range(n_epochs):
         train_loss = 0.0
         for data, target in train_loader:
             data = data.to(device)
@@ -91,10 +72,8 @@ def _train(
         # calculate average losses
         train_loss = train_loss / len(train_loader)
 
-        p_bar.set_description(f"Training with loss {train_loss:.6f}")
-        p_bar.reset(total=n_epochs)
-        p_bar.update(epoch + 1)
-        p_bar.refresh()
+        p_bar.set_description(f"Training (loss {train_loss:.6f})")
+        p_bar.update()
 
     p_bar.close()
     # model in evaluation mode
@@ -104,9 +83,8 @@ def _train(
 
 @app.command(
     short_help="The training command",
-    help="This command trains a simple convolutional neural network on the MNIST dataset.",
 )
-def train_model(
+def train(
     model_output_path: str = typer.Argument(
         help="The path to save the trained model.",
         writable=True,
@@ -123,6 +101,9 @@ def train_model(
         help="The number of epochs to train the model.", default=10
     ),
 ):
+    """
+    Trains a simple convolutional neural network on the MNIST dataset.
+    """
     console = Console()
     if dataset == SupportedDataset.mnist:
         chosen_dataset = datasets.MNIST
@@ -141,21 +122,18 @@ def train_model(
     train_loader = torch.utils.data.DataLoader(
         train_data, batch_size=batch_size, shuffle=True
     )
-    model = ConvNet()
+    model = CNN2D()
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-    table = Table()
-    table.add_column("Parameter", style="cyan", no_wrap=True)
-    table.add_column("Value", style="magenta")
-    table.add_row("Batch size", str(batch_size))
-    table.add_row("Dataset", str(dataset.value))
-    table.add_row("Epochs", str(epochs))
-    table.add_row("Device", str(model.device))
-    table.add_section()
-    table.add_row("Criterion", str(criterion))
-    table.add_row("Optimizer", str(optimizer))
-    console.print(table)
+    config_tree = Tree("Configuration")
+    config_tree.add(f"Batch size: {batch_size}")
+    config_tree.add(f"Dataset: {dataset.value}")
+    config_tree.add(f"Epochs: {epochs}")
+    config_tree.add(f"Device: {model.device}")
+    config_tree.add(f"Criterion: {criterion}")
+    config_tree.add(f"Optimizer: {optimizer}")
+    console.print(config_tree)
 
     model = _train(
         model=model,
@@ -170,18 +148,26 @@ def train_model(
 
 
 def _test(
-    model: torch.nn.Module, test_loader: torch.utils.data.DataLoader, criterion, device
+    model: torch.nn.Module,
+    test_loader: torch.utils.data.DataLoader,
+    criterion,
+    device,
+    classes,
 ):
     console = Console()
     # initialize lists to monitor test loss and accuracy
     test_loss = 0.0
-    class_correct = list(0.0 for i in range(10))
-    class_total = list(0.0 for i in range(10))
+    class_correct = list(0.0 for _ in range(len(classes)))
+    class_total = list(0.0 for _ in range(len(classes)))
 
     p_bar = tqdm(
-        total=len(test_loader), desc="Testing in batches", leave=True, colour="yellow"
+        total=len(test_loader),
+        desc="Testing in batches",
+        leave=True,
+        colour="yellow",
+        unit="batch",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
     )
-    test_counter = 0
     # model in evaluation mode
     model.eval()
     for data, target in test_loader:
@@ -199,12 +185,7 @@ def _test(
             label = target.data[i]
             class_correct[label] += correct[i].item()
             class_total[label] += 1
-
-        test_counter += 1
-        p_bar.reset(total=len(test_loader))
-        p_bar.update(test_counter + 1)
-        p_bar.refresh()
-
+        p_bar.update()
     p_bar.close()
 
     # calculate and print avg test loss
@@ -216,15 +197,11 @@ def _test(
     table.add_column("Accuracy", justify="center")
     table.add_column("Observations (correct/total)", justify="center", no_wrap=True)
 
-    for label in range(10):
-        # typer.echo(
-        #     f"Test accuracy of {label}: {int(100 * class_correct[label] / class_total[label])}% "
-        #     f"({int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))})"
-        # )
+    for idx, label in enumerate(classes):
         table.add_row(
-            str(label),
-            f"{int(100 * class_correct[label] / class_total[label])}%",
-            f"{int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))}",
+            f"{label}",
+            f"{int(100 * class_correct[idx] / class_total[idx])}%",
+            f"{int(np.sum(class_correct[idx]))}/{int(np.sum(class_total[idx]))}",
         )
 
     table.add_section()
@@ -244,7 +221,7 @@ def _test(
     short_help="The plaintext test command.",
     help="This command performs test on a previously trained model.",
 )
-def plaintext_test_model(
+def test(
     model_input_path: str = typer.Argument(
         help="The path to the trained model.",
         readable=True,
@@ -276,45 +253,64 @@ def plaintext_test_model(
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
     )
-    model = ConvNet()
+    model = CNN2D()
     model.load_state_dict(torch.load(model_input_path))
     typer.echo(f"Loaded model from {model_input_path}")
     criterion = torch.nn.CrossEntropyLoss()
 
-    table = Table()
-    table.add_column("Parameter", no_wrap=True)
-    table.add_column("Value")
-    table.add_row("Batch size", str(batch_size))
-    table.add_row("Dataset", str(dataset.value))
-    table.add_row("Device", str(model.device))
-    table.add_row("Criterion", str(criterion))
-    console.print(table)
+    config_tree = Tree("Configuration")
+    config_tree.add(f"Batch size: {batch_size}")
+    config_tree.add(f"Dataset: {dataset.value}")
+    config_tree.add(f"Device: {model.device}")
+    config_tree.add(f"Criterion: {criterion}")
+    console.print(config_tree)
 
     _test(
-        model=model, test_loader=test_loader, criterion=criterion, device=model.device
+        model=model,
+        test_loader=test_loader,
+        criterion=criterion,
+        device=model.device,
+        classes=test_data.classes,
     )
 
 
-def _enc_test(context: ts.context, model, test_loader, criterion, kernel_shape, stride):
+def _enc_test(
+    context: ts.context,
+    encrypted_model,
+    test_loader,
+    criterion,
+    kernel_shape,
+    stride,
+    classes,
+):
+    console = Console()
     # initialize lists to monitor test loss and accuracy
     test_loss = 0.0
-    class_correct = list(0.0 for i in range(10))
-    class_total = list(0.0 for i in range(10))
+    class_correct = list(0.0 for _ in range(len(classes)))
+    class_total = list(0.0 for _ in range(len(classes)))
+
+    p_bar = tqdm(
+        total=len(test_loader),
+        desc="Testing encrypted input",
+        leave=True,
+        colour="yellow",
+        unit="classification",
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
+    )
 
     for data, target in test_loader:
         # Encoding and encryption
         x_enc, windows_nb = ts.im2col_encoding(
             context,
-            data.view(28, 28).tolist(),
+            data.view(data.shape[-2], data.shape[-1]).tolist(),
             kernel_shape[0],
             kernel_shape[1],
             stride,
         )
         # Encrypted evaluation
-        enc_model = EncConvNet(model)
-        enc_output = enc_model(x_enc, windows_nb)
+        encrypted_output = encrypted_model(x_enc, windows_nb)
         # Decryption of result
-        output = enc_output.decrypt()
+        output = encrypted_output.decrypt()
         output = torch.tensor(output).view(1, -1)
 
         # compute loss
@@ -329,33 +325,61 @@ def _enc_test(context: ts.context, model, test_loader, criterion, kernel_shape, 
         label = target.data[0]
         class_correct[label] += correct.item()
         class_total[label] += 1
+        p_bar.update()
 
+    p_bar.close()
     # calculate and print avg test loss
     test_loss = test_loss / sum(class_total)
-    print(f"Test Loss: {test_loss:.6f}\n")
+    typer.echo(f"Test loss: {test_loss:.6f}\n")
 
-    for label in range(10):
-        print(
-            f"Test Accuracy of {label}: {int(100 * class_correct[label] / class_total[label])}% "
-            f"({int(np.sum(class_correct[label]))}/{int(np.sum(class_total[label]))})"
+    table = Table()
+    table.add_column("Label", justify="center", no_wrap=True)
+    table.add_column("Accuracy", justify="center")
+    table.add_column("Observations (correct/total)", justify="center", no_wrap=True)
+
+    for idx, label in enumerate(classes):
+        table.add_row(
+            f"{label}",
+            f"{int(100 * class_correct[idx] / class_total[idx])}%",
+            f"{int(np.sum(class_correct[idx]))}/{int(np.sum(class_total[idx]))}",
         )
 
-    print(
-        f"\nTest Accuracy (Overall): {int(100 * np.sum(class_correct) / np.sum(class_total))}% "
-        f"({int(np.sum(class_correct))}/{int(np.sum(class_total))})"
+    table.add_section()
+
+    table.add_row(
+        "Overall",
+        f"{int(100 * np.sum(class_correct) / np.sum(class_total))}%",
+        f"{int(np.sum(class_correct))}/{int(np.sum(class_total))}",
+        style="bold",
+        end_section=True,
     )
+
+    console.print(table)
 
 
 @app.command(
     short_help="The encrypted test command.",
     help="This command performs encrypted test on a previously trained model.",
 )
-def encrypted_test_model(
-    model_path: str = typer.Option(
+def encrypted_test(
+    model_path: str = typer.Argument(
         help="The path to the trained model.", readable=True, exists=True
     ),
+    dataset: Optional[SupportedDataset] = typer.Option(
+        help="The dataset to use for training.", default=SupportedDataset.mnist
+    ),
 ):
-    test_data = datasets.MNIST(
+    console = Console()
+
+    if dataset == SupportedDataset.mnist:
+        chosen_dataset = datasets.MNIST
+    elif dataset == SupportedDataset.fashion_mnist:
+        chosen_dataset = datasets.FashionMNIST
+    else:
+        typer.echo("Invalid dataset specified.", color="red")
+        raise typer.Exit(code=1)
+
+    test_data = chosen_dataset(
         Constants.DATA_DIRECTORY,
         train=False,
         download=True,
@@ -365,7 +389,14 @@ def encrypted_test_model(
     test_loader = torch.utils.data.DataLoader(
         test_data, batch_size=batch_size, shuffle=True
     )
-    model = ConvNet()
+    model = CNN2D()
+    if str(model.device) != "cpu":
+        typer.secho(
+            f"Even if the model is on a {model.device} device, "
+            "the encrypted test is done on CPU because encrypted "
+            "queries are not supported on GPU-like devices.",
+            bg=typer.colors.RED,
+        )
     model.load_state_dict(torch.load(model_path))
     criterion = torch.nn.CrossEntropyLoss()
     kernel_shape = model.conv1.kernel_size
@@ -396,39 +427,21 @@ def encrypted_test_model(
     # galois keys are required to do ciphertext rotations
     context.generate_galois_keys()
 
+    config_tree = Tree("Configuration")
+    config_tree.add(f"Batch size: {batch_size}")
+    config_tree.add(f"Dataset: {dataset.value}")
+    config_tree.add(f"Criterion: {criterion}")
+    config_tree.add(f"Kernel shape: {kernel_shape}")
+    config_tree.add(f"Stride: {stride}")
+    config_tree.add(f"FHE scheme: {ts.SCHEME_TYPE.CKKS}")
+    console.print(config_tree)
+
     _enc_test(
         context=context,
-        model=model,
+        encrypted_model=EncryptedCNN2D(model),
         test_loader=test_loader,
         criterion=criterion,
         kernel_shape=kernel_shape,
         stride=stride,
+        classes=test_data.classes,
     )
-
-
-@app.command(
-    short_help="The key generation command",
-    help="This command generates keys for the CKKS scheme.",
-)
-def keygen():
-    console = Console()
-    msg = Markdown(
-        "Generating keys for the CKKS scheme...",
-        justify="center",
-    )
-    console.print(
-        Panel(
-            msg,
-            title=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            title_align="right",
-            expand=False,
-            padding=(1, 2),
-        )
-    )
-    context = ts.context(
-        ts.SCHEME_TYPE.CKKS, 8192, coeff_mod_bit_sizes=[60, 40, 40, 60]
-    )
-    context.global_scale = 2**40
-    context.generate_galois_keys()
-    console.print(f"Public Key: {context.public_key()}")
-    console.print(f"Secret Key: {context.secret_key()}")

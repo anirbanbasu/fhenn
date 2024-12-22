@@ -7,7 +7,7 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
 
-class ConvNet(torch.nn.Module):
+class CNN2D(torch.nn.Module):
     def __init__(self, hidden=64, output=10, device=None):
         if device is None:
             if torch.backends.mps.is_available():
@@ -20,9 +20,14 @@ class ConvNet(torch.nn.Module):
         else:
             self.device = torch.device(device)
 
-        super(ConvNet, self).__init__()
+        super(CNN2D, self).__init__()
         self.conv1 = torch.nn.Conv2d(
-            1, 4, kernel_size=7, padding=0, stride=3, device=self.device
+            in_channels=1,
+            out_channels=4,
+            kernel_size=7,
+            padding=0,
+            stride=3,
+            device=self.device,
         )
         self.fc1 = torch.nn.Linear(256, hidden, device=self.device)
         self.fc2 = torch.nn.Linear(hidden, output, device=self.device)
@@ -39,8 +44,8 @@ class ConvNet(torch.nn.Module):
         return x
 
 
-class EncConvNet:
-    def __init__(self, conv_net: ConvNet):
+class EncryptedCNN2D:
+    def __init__(self, conv_net: CNN2D):
         self.conv1_weight = conv_net.conv1.weight.data.view(
             conv_net.conv1.out_channels,
             conv_net.conv1.kernel_size[0],

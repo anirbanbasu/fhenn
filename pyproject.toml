@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fhenn"
-version = "0.1.001"
+version = "0.1.1"
 description = "Experiments with Fully Homomorphic Encryption (FHE) and neural networks."
 authors = ["Anirban Basu <anirbanbasu@users.noreply.github.com>"]
 readme = "README.md"
@@ -16,7 +16,7 @@ torchvision = "^0.20.1"
 tqdm = "^4.67.1"
 
 [tool.poetry.scripts]
-fhenn = "fhenn.cli:app"
+fhenn = "fhenn.cli.main:app"
 
 
 [tool.poetry.group.test.dependencies]

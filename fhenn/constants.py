@@ -3,3 +3,5 @@ class Constants:
 
     DATA_DIRECTORY = "data"
     """ str: The relative directory where the dataset data is stored. """
+
+    CRLF = "\r\n"
