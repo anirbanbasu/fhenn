@@ -25,7 +25,7 @@ def version(
     if more_metadata:
         console = Console()
         table = Table(
-            title=f"FHENN Metadata as of {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}",
+            title=f"FHENN Metadata as of {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             title_justify="right",
             title_style="bold",
             safe_box=True,
