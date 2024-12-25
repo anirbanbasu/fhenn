@@ -25,11 +25,22 @@ app = typer.Typer(name="cnn")
 
 
 class SupportedDataset(str, Enum):
+    """Supported datasets for training and testing."""
+
     mnist = "mnist"
+    """ The MNIST dataset. [URL](https://yann.lecun.com/exdb/mnist/) """
+
     fashion_mnist = "fashion_mnist"
+    """ The Fashion-MNIST dataset. [URL](https://github.com/zalandoresearch/fashion-mnist) """
+
     emnist = "emnist"
+    """ The EMNIST dataset. [URL](https://www.nist.gov/itl/products-and-services/emnist-dataset) """
+
     kmnist = "kmnist"
+    """ The Kuzushiji-MNIST dataset. [URL](http://codh.rois.ac.jp/kmnist/index.html.en) """
+
     qmnist = "qmnist"
+    """ The QMNIST dataset. [URL](https://github.com/facebookresearch/qmnist) """
 
 
 torch.manual_seed(21)
@@ -38,7 +49,7 @@ torch.manual_seed(21)
 @app.callback()
 def callback():
     """
-    Convolutional Neural Network (CNN) training and testing.
+    Display a header-like message for all sub-commands.
     """
     typer.echo("Convolutional Neural Network (CNN) training and testing.")
 
@@ -105,7 +116,13 @@ def train(
     ),
 ):
     """
-    Trains a simple convolutional neural network on the MNIST dataset.
+    Trains a simple convolutional neural network on the specified dataset.
+
+    Args:
+        model_output_path (str): The path to save the trained model.
+        batch_size (int): The batch size to use for training.
+        dataset (SupportedDataset): The dataset to use for training.
+        epochs (int): The number of epochs to train the model.
     """
     console = Console()
     if dataset == SupportedDataset.mnist:
@@ -256,6 +273,14 @@ def test(
         default=SupportedDataset.mnist,
     ),
 ):
+    """
+    Tests a previously trained model on the specified dataset.
+
+    Args:
+        model_input_path (str): The path to the trained model.
+        batch_size (int): The batch size to use for training.
+        dataset (SupportedDataset): The dataset to use for training.
+    """
     console = Console()
     if dataset == SupportedDataset.mnist:
         chosen_dataset = datasets.MNIST
@@ -408,6 +433,14 @@ def encrypted_test(
         default=SupportedDataset.mnist,
     ),
 ):
+    """
+    Tests a previously trained model on the specified dataset using encrypted queries.
+    The CKKS fully homomorphic cryptosystem is used. [Research paper](https://eprint.iacr.org/2016/421.pdf)
+
+    Args:
+        model_path (str): The path to the trained model.
+        dataset (SupportedDataset): The dataset to use for training.
+    """
     console = Console()
 
     if dataset == SupportedDataset.mnist:

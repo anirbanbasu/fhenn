@@ -1,3 +1,5 @@
+"""The main Typer application for the FHENN CLI."""
+
 import typer
 from fhenn.cli import version
 from fhenn.cli import cnn
