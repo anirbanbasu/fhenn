@@ -12,3 +12,7 @@ class Constants:
 
     CRLF = "\r\n"
     """ str: The Carriage Return and Line Feed sequence. """
+
+    DEVICE_LABEL_CPU = "cpu"
+    DEVICE_LABEL_CUDA = "cuda"
+    DEVICE_LABEL_MPS = "mps"

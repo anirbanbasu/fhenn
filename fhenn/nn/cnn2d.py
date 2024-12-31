@@ -1,5 +1,8 @@
 import torch
+from torch import nn
 import tenseal as ts
+
+from fhenn.constants import Constants
 
 try:
     from icecream import ic
@@ -7,7 +10,7 @@ except ImportError:  # Graceful fallback if IceCream isn't installed.
     ic = lambda *a: None if not a else (a[0] if len(a) == 1 else a)  # noqa
 
 
-class CNN2D(torch.nn.Module):
+class CNN2D(nn.Module):
     """A rudimentary CNN model for classification of MNIST-like 2D image data."""
 
     def __init__(self, hidden=64, output=10, device=None):
@@ -22,17 +25,17 @@ class CNN2D(torch.nn.Module):
         if device is None:
             if torch.backends.mps.is_available():
                 if torch.backends.mps.is_built():
-                    self.device = torch.device("mps")
+                    self.device = torch.device(Constants.DEVICE_LABEL_MPS)
             elif torch.cuda.is_available():
-                self.device = torch.device("cuda")
+                self.device = torch.device(Constants.DEVICE_LABEL_CUDA)
             else:
-                self.device = torch.device("cpu")
+                self.device = torch.device(Constants.DEVICE_LABEL_CPU)
         else:
             self.device = torch.device(device)
             """ torch.device: The device to use for the model. """
 
         super(CNN2D, self).__init__()
-        self.conv1 = torch.nn.Conv2d(
+        self.conv1 = nn.Conv2d(
             in_channels=1,
             out_channels=4,
             kernel_size=7,
@@ -40,13 +43,13 @@ class CNN2D(torch.nn.Module):
             stride=3,
             device=self.device,
         )
-        """ torch.nn.Conv2d: The first convolutional layer. """
+        """ The first convolutional layer. """
 
-        self.fc1 = torch.nn.Linear(256, hidden, device=self.device)
-        """ torch.nn.Linear: The first fully connected layer. """
+        self.fc1 = nn.Linear(256, hidden, device=self.device)
+        """ The first fully connected layer. """
 
-        self.fc2 = torch.nn.Linear(hidden, output, device=self.device)
-        """ torch.nn.Linear: The second fully connected layer. """
+        self.fc2 = nn.Linear(hidden, output, device=self.device)
+        """ The second fully connected layer. """
 
     def forward(self, x):
         """
