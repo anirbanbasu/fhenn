@@ -3,9 +3,10 @@
 import typer
 from fhenn.cli import version
 from fhenn.cli import cnn
+from fhenn.constants import Constants
 
 app = typer.Typer(
-    name="FHENN",
+    name=Constants.APP_NAME,
     no_args_is_help=True,
     add_completion=False,
     pretty_exceptions_enable=True,
@@ -16,5 +17,10 @@ app = typer.Typer(
 app.add_typer(version.app)
 app.add_typer(cnn.app)
 
-if __name__ == "__main__":
+
+def main():
     app()
+
+
+if __name__ == "__main__":
+    main()

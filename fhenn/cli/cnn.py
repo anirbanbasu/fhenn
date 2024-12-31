@@ -10,6 +10,7 @@ from rich.tree import Tree
 from rich.table import Table
 import warnings
 from tqdm import tqdm
+from fhenn import _l10n
 
 from fhenn.constants import Constants
 from fhenn.nn.cnn2d import CNN2D, EncryptedCNN2D
@@ -43,6 +44,7 @@ class SupportedDataset(str, Enum):
     """ The QMNIST dataset. [URL](https://github.com/facebookresearch/qmnist) """
 
 
+# Set the seed for reproducibility
 torch.manual_seed(21)
 
 
@@ -51,7 +53,7 @@ def callback():
     """
     Display a header-like message for all sub-commands.
     """
-    typer.echo("Convolutional Neural Network (CNN) training and testing.")
+    typer.echo(_l10n("Convolutional Neural Network (CNN) training and testing."))
 
 
 def _train(
@@ -65,10 +67,10 @@ def _train(
     model.train()
     p_bar = tqdm(
         total=n_epochs,
-        desc="Training",
+        desc=_l10n("Training"),
         leave=True,
         colour="blue",
-        unit="epoch",
+        unit=_l10n("epoch"),
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
     )
     for _ in range(n_epochs):
@@ -86,7 +88,9 @@ def _train(
         # calculate average losses
         train_loss = train_loss / len(train_loader)
 
-        p_bar.set_description(f"Training (loss {train_loss:.6f})")
+        p_bar.set_description(
+            _l10n("Training (loss {train_loss:.6f})").format(train_loss=train_loss)
+        )
         p_bar.update()
 
     p_bar.close()
@@ -96,34 +100,25 @@ def _train(
 
 
 @app.command(
-    short_help="The training command",
+    short_help=_l10n("The training command"),
 )
 def train(
     model_output_path: str = typer.Argument(
-        help="The path to save the trained model.",
+        help=_l10n("The path to save the trained model."),
         writable=True,
         exists=False,
         resolve_path=True,
     ),
     batch_size: Optional[int] = typer.Option(
-        help="The batch size to use for training.", default=64
+        help=_l10n("The batch size to use for training."), default=64
     ),
     dataset: Optional[SupportedDataset] = typer.Option(
-        help="The dataset to use for training.", default=SupportedDataset.mnist
+        help=_l10n("The dataset to use for training."), default=SupportedDataset.mnist
     ),
     epochs: Optional[int] = typer.Option(
-        help="The number of epochs to train the model.", default=10
+        help=_l10n("The number of epochs to train the model."), default=10
     ),
 ):
-    """
-    Trains a simple convolutional neural network on the specified dataset.
-
-    Args:
-        model_output_path (str): The path to save the trained model.
-        batch_size (int): The batch size to use for training.
-        dataset (SupportedDataset): The dataset to use for training.
-        epochs (int): The number of epochs to train the model.
-    """
     console = Console()
     if dataset == SupportedDataset.mnist:
         chosen_dataset = datasets.MNIST
@@ -136,7 +131,7 @@ def train(
     elif dataset == SupportedDataset.qmnist:
         chosen_dataset = datasets.QMNIST
     else:
-        typer.secho("Invalid dataset specified.", bg=typer.colors.RED)
+        typer.secho(_l10n("Invalid dataset specified."), bg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     train_data = (
@@ -162,14 +157,14 @@ def train(
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
 
-    config_tree = Tree("Configuration")
-    config_tree.add(f"Model: {model}")
-    config_tree.add(f"Batch size: {batch_size}")
-    config_tree.add(f"Dataset: {dataset.value}")
-    config_tree.add(f"Epochs: {epochs}")
-    config_tree.add(f"Device: {model.device}")
-    config_tree.add(f"Criterion: {criterion}")
-    config_tree.add(f"Optimizer: {optimizer}")
+    config_tree = Tree(_l10n("Configuration"))
+    config_tree.add(_l10n("Model: {model}").format(model=model))
+    config_tree.add(_l10n("Batch size: {batch_size}").format(batch_size=batch_size))
+    config_tree.add(_l10n("Dataset: {dataset}").format(dataset=dataset.value))
+    config_tree.add(_l10n("Epochs: {epochs}").format(epochs=epochs))
+    config_tree.add(_l10n("Device: {device}").format(device=model.device))
+    config_tree.add(_l10n("Criterion: {criterion}").format(criterion=criterion))
+    config_tree.add(_l10n("Optimizer: {optimizer}").format(optimizer=optimizer))
     console.print(config_tree)
 
     model = _train(
@@ -181,7 +176,11 @@ def train(
         n_epochs=epochs,
     )
     torch.save(model.state_dict(), model_output_path)
-    typer.echo(f"Model saved to {model_output_path}")
+    typer.echo(
+        _l10n("Model saved to {model_output_path}").format(
+            model_output_path=model_output_path
+        )
+    )
 
 
 def _test(
@@ -199,10 +198,10 @@ def _test(
 
     p_bar = tqdm(
         total=len(test_loader),
-        desc="Testing in batches",
+        desc=_l10n("Testing in batches"),
         leave=True,
         colour="yellow",
-        unit="batch",
+        unit=_l10n("batch"),
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
     )
     # model in evaluation mode
@@ -227,12 +226,14 @@ def _test(
 
     # calculate and print avg test loss
     test_loss = test_loss / len(test_loader)
-    typer.echo(f"Test loss: {test_loss:.6f}\n")
+    typer.echo(_l10n("Test loss: {test_loss:.6f}\n").format(test_loss=test_loss))
 
     table = Table()
-    table.add_column("Label", justify="center", no_wrap=True)
-    table.add_column("Accuracy", justify="center")
-    table.add_column("Observations (correct/total)", justify="center", no_wrap=True)
+    table.add_column(_l10n("Label"), justify="center", no_wrap=True)
+    table.add_column(_l10n("Accuracy"), justify="center")
+    table.add_column(
+        _l10n("Observations (correct/total)"), justify="center", no_wrap=True
+    )
 
     for idx, label in enumerate(classes):
         table.add_row(
@@ -244,7 +245,7 @@ def _test(
     table.add_section()
 
     table.add_row(
-        "Overall",
+        _l10n("Overall"),
         f"{int(100 * np.sum(class_correct) / np.sum(class_total))}%",
         f"{int(np.sum(class_correct))}/{int(np.sum(class_total))}",
         style="bold",
@@ -255,32 +256,24 @@ def _test(
 
 
 @app.command(
-    short_help="The plaintext test command.",
-    help="This command performs test on a previously trained model.",
+    short_help=_l10n("The plaintext test command."),
+    help=_l10n("This command performs test on a previously trained model."),
 )
 def test(
     model_input_path: str = typer.Argument(
-        help="The path to the trained model.",
+        help=_l10n("The path to the trained model."),
         readable=True,
         exists=True,
         resolve_path=True,
     ),
     batch_size: Optional[int] = typer.Option(
-        help="The batch size to use for training.", default=64
+        help=_l10n("The batch size to use for testing."), default=64
     ),
     dataset: Optional[SupportedDataset] = typer.Option(
-        help="The dataset to use for training.",
+        help=_l10n("The dataset to use for testing."),
         default=SupportedDataset.mnist,
     ),
 ):
-    """
-    Tests a previously trained model on the specified dataset.
-
-    Args:
-        model_input_path (str): The path to the trained model.
-        batch_size (int): The batch size to use for training.
-        dataset (SupportedDataset): The dataset to use for training.
-    """
     console = Console()
     if dataset == SupportedDataset.mnist:
         chosen_dataset = datasets.MNIST
@@ -293,7 +286,7 @@ def test(
     elif dataset == SupportedDataset.qmnist:
         chosen_dataset = datasets.QMNIST
     else:
-        typer.secho("Invalid dataset specified.", bg=typer.colors.RED)
+        typer.secho(_l10n("Invalid dataset specified."), bg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     test_data = (
@@ -317,15 +310,19 @@ def test(
     )
     model = CNN2D()
     model.load_state_dict(torch.load(model_input_path))
-    typer.echo(f"Loaded model from {model_input_path}")
+    typer.echo(
+        _l10n("Loaded model from {model_input_path}").format(
+            model_input_path=model_input_path
+        )
+    )
     criterion = torch.nn.CrossEntropyLoss()
 
-    config_tree = Tree("Configuration")
-    config_tree.add(f"Model: {model}")
-    config_tree.add(f"Batch size: {batch_size}")
-    config_tree.add(f"Dataset: {dataset.value}")
-    config_tree.add(f"Device: {model.device}")
-    config_tree.add(f"Criterion: {criterion}")
+    config_tree = Tree(_l10n("Configuration"))
+    config_tree.add(_l10n("Model: {model}").format(model=model))
+    config_tree.add(_l10n("Batch size: {batch_size}").format(batch_size=batch_size))
+    config_tree.add(_l10n("Dataset: {dataset}").format(dataset=dataset.value))
+    config_tree.add(_l10n("Device: {device}").format(device=model.device))
+    config_tree.add(_l10n("Criterion: {criterion}").format(criterion=criterion))
     console.print(config_tree)
 
     _test(
@@ -354,10 +351,10 @@ def _enc_test(
 
     p_bar = tqdm(
         total=len(test_loader),
-        desc="Testing encrypted input",
+        desc=_l10n("Testing encrypted input"),
         leave=True,
         colour="yellow",
-        unit="classification",
+        unit=_l10n("classification"),
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_inv_fmt}{postfix}]",
     )
 
@@ -393,12 +390,14 @@ def _enc_test(
     p_bar.close()
     # calculate and print avg test loss
     test_loss = test_loss / sum(class_total)
-    typer.echo(f"Test loss: {test_loss:.6f}\n")
+    typer.echo(_l10n("Test loss: {test_loss:.6f}\n").format(test_loss=test_loss))
 
     table = Table()
-    table.add_column("Label", justify="center", no_wrap=True)
-    table.add_column("Accuracy", justify="center")
-    table.add_column("Observations (correct/total)", justify="center", no_wrap=True)
+    table.add_column(_l10n("Label"), justify="center", no_wrap=True)
+    table.add_column(_l10n("Accuracy"), justify="center")
+    table.add_column(
+        _l10n("Observations (correct/total)"), justify="center", no_wrap=True
+    )
 
     for idx, label in enumerate(classes):
         table.add_row(
@@ -410,7 +409,7 @@ def _enc_test(
     table.add_section()
 
     table.add_row(
-        "Overall",
+        _l10n("Overall"),
         f"{int(100 * np.sum(class_correct) / np.sum(class_total))}%",
         f"{int(np.sum(class_correct))}/{int(np.sum(class_total))}",
         style="bold",
@@ -421,26 +420,18 @@ def _enc_test(
 
 
 @app.command(
-    short_help="The encrypted test command.",
-    help="This command performs encrypted test on a previously trained model.",
+    short_help=_l10n("The encrypted test command."),
+    help=_l10n("This command performs encrypted test on a previously trained model."),
 )
 def encrypted_test(
-    model_path: str = typer.Argument(
-        help="The path to the trained model.", readable=True, exists=True
+    model_input_path: str = typer.Argument(
+        help=_l10n("The path to the trained model."), readable=True, exists=True
     ),
     dataset: Optional[SupportedDataset] = typer.Option(
-        help="The dataset to use for training.",
+        help=_l10n("The dataset to use for testing."),
         default=SupportedDataset.mnist,
     ),
 ):
-    """
-    Tests a previously trained model on the specified dataset using encrypted queries.
-    The CKKS fully homomorphic cryptosystem is used. [Research paper](https://eprint.iacr.org/2016/421.pdf)
-
-    Args:
-        model_path (str): The path to the trained model.
-        dataset (SupportedDataset): The dataset to use for training.
-    """
     console = Console()
 
     if dataset == SupportedDataset.mnist:
@@ -480,13 +471,20 @@ def encrypted_test(
     model = CNN2D()
     if str(model.device) != "cpu":
         typer.secho(
-            f"Even if the model is on a {model.device} device, "
-            "the encrypted test is done on CPU because encrypted "
-            "queries are not supported on GPU-like devices.",
+            _l10n(
+                "Even if the model is on a {device} device, "
+                "the encrypted test is done on CPU because encrypted "
+                "queries are not supported on GPU-like devices."
+            ).format(device=model.device),
             fg=typer.colors.BRIGHT_RED,
             bg=typer.colors.BRIGHT_YELLOW,
         )
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_input_path))
+    typer.echo(
+        _l10n("Loaded model from {model_input_path}").format(
+            model_input_path=model_input_path
+        )
+    )
     criterion = torch.nn.CrossEntropyLoss()
     kernel_shape = model.conv1.kernel_size
     stride = model.conv1.stride[0]
@@ -516,14 +514,18 @@ def encrypted_test(
     # galois keys are required to do ciphertext rotations
     context.generate_galois_keys()
 
-    config_tree = Tree("Configuration")
-    config_tree.add(f"Model: {model}")
-    config_tree.add(f"Batch size: {batch_size}")
-    config_tree.add(f"Dataset: {dataset.value}")
-    config_tree.add(f"Criterion: {criterion}")
-    config_tree.add(f"Kernel shape: {kernel_shape}")
-    config_tree.add(f"Stride: {stride}")
-    config_tree.add(f"FHE scheme: {ts.SCHEME_TYPE.CKKS}")
+    config_tree = Tree(_l10n("Configuration"))
+    config_tree.add(_l10n("Model: {model}").format(model=model))
+    config_tree.add(_l10n("Batch size: {batch_size}").format(batch_size=batch_size))
+    config_tree.add(_l10n("Dataset: {dataset}").format(dataset=dataset.value))
+    config_tree.add(_l10n("Criterion: {criterion}").format(criterion=criterion))
+    config_tree.add(
+        _l10n("Kernel shape: {kernel_shape}").format(kernel_shape=kernel_shape)
+    )
+    config_tree.add(_l10n("Stride: {stride}").format(stride=stride))
+    config_tree.add(
+        _l10n("FHE scheme: {fhe_scheme}").format(fhe_scheme=ts.SCHEME_TYPE.CKKS)
+    )
     console.print(config_tree)
 
     _enc_test(
